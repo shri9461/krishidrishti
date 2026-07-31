@@ -156,6 +156,8 @@ const LandingPage = () => {
         </div>
       </section>
 
+
+
       {/* Contact Section */}
       <section id="contact" className="py-24 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="space-y-6">

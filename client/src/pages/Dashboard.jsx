@@ -18,6 +18,13 @@ const Dashboard = () => {
   const [weatherQuery, setWeatherQuery] = useState('');
   const [weatherLoading, setWeatherLoading] = useState(false);
 
+  // Mandi Prices State
+  const [mandiPrices, setMandiPrices] = useState([]);
+  const [mandiSearch, setMandiSearch] = useState('');
+  const [mandiState, setMandiState] = useState('all');
+  const [mandiStatesList, setMandiStatesList] = useState([]);
+  const [mandiLoading, setMandiLoading] = useState(false);
+
   const [schemesList, setSchemesList] = useState([]);
   const [schemeSearch, setSchemeSearch] = useState('');
   const [schemeCategory, setSchemeCategory] = useState('all');
@@ -50,10 +57,12 @@ const Dashboard = () => {
   };
 
   // Fetch Weather Forecast API
+  const [lastFetchedLoc, setLastFetchedLoc] = useState('');
   const fetchWeather = async (loc = '') => {
     setWeatherLoading(true);
     try {
       const q = loc || user?.location || user?.state || 'Maharashtra';
+      setLastFetchedLoc(q);
       const res = await fetch(`/api/weather?location=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${user.token}` } });
       const json = await res.json();
       if (json.success) setWeatherData(json.data);
@@ -61,6 +70,27 @@ const Dashboard = () => {
       console.error(err);
     } finally {
       setWeatherLoading(false);
+    }
+  };
+
+  // Fetch Mandi Prices API
+  const fetchMandiPrices = async () => {
+    setMandiLoading(true);
+    try {
+      let url = `/api/market-prices?search=${encodeURIComponent(mandiSearch)}`;
+      if (mandiState !== 'all') {
+        url += `&state=${encodeURIComponent(mandiState)}`;
+      }
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${user.token}` } });
+      const json = await res.json();
+      if (json.success) {
+        setMandiPrices(json.data.prices);
+        setMandiStatesList(json.data.states);
+      }
+    } catch (err) {
+      console.error('Fetch mandi prices error:', err);
+    } finally {
+      setMandiLoading(false);
     }
   };
 
@@ -103,10 +133,15 @@ const Dashboard = () => {
 
   // Synchronise Active Tab changes with URL Search Params
   useEffect(() => {
-    if (tabParam === 'weather') fetchWeather();
+    if (tabParam === 'weather') fetchWeather(lastFetchedLoc);
+    if (tabParam === 'prices') fetchMandiPrices();
     if (tabParam === 'schemes') fetchSchemes();
     if (tabParam === 'admin') fetchAdminStats();
   }, [tabParam]);
+
+  useEffect(() => {
+    if (tabParam === 'prices') fetchMandiPrices();
+  }, [mandiState]);
 
   useEffect(() => {
     if (tabParam === 'schemes') fetchSchemes();
@@ -167,6 +202,7 @@ const Dashboard = () => {
         <Navbar title={
           tabParam === 'overview' ? `${t.welcome}, ${user?.name}!` :
           tabParam === 'weather' ? t.weather :
+          tabParam === 'prices' ? t.prices :
           tabParam === 'schemes' ? t.schemes :
           tabParam === 'profile' ? t.profile : t.adminControl
         } />
@@ -178,6 +214,7 @@ const Dashboard = () => {
             {[
               { id: 'overview', name: t.dashboard },
               { id: 'weather', name: t.weather },
+              { id: 'prices', name: t.prices },
               { id: 'schemes', name: t.schemes },
               { id: 'profile', name: t.profile },
               ...(user.role === 'admin' ? [{ id: 'admin', name: t.adminHome }] : [])
@@ -204,23 +241,55 @@ const Dashboard = () => {
                 <p className="text-xs text-white/80 mt-1">{t.overviewDesc}</p>
               </div>
 
-              <div className="max-w-xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                 {/* Weather card */}
-                <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-premium space-y-3">
-                  <div className="flex justify-between items-center text-slate-400 text-xs font-bold uppercase">
-                    <span>{t.mausamTitle}</span>
-                    <CloudSun size={18} className="text-secondary animate-pulse" />
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-3xl">🌦️</span>
-                    <div>
-                      <h4 className="text-2xl font-extrabold text-slate-800">28°C</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">{user.location || 'Lasalgaon'}, {user.state}</p>
+                <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-premium space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-slate-400 text-xs font-bold uppercase">
+                      <span>{t.mausamTitle}</span>
+                      <CloudSun size={18} className="text-secondary animate-pulse" />
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="text-3xl">🌦️</span>
+                      <div>
+                        <h4 className="text-2xl font-extrabold text-slate-800">28°C</h4>
+                        <p className="text-[10px] text-slate-400 font-semibold">{user.location || 'Lasalgaon'}, {user.state}</p>
+                      </div>
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded leading-relaxed border border-slate-100 font-semibold">
                     {t.dryRecommendation}
                   </p>
+                </div>
+
+                {/* Mandi Rates Quick Widget */}
+                <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-premium space-y-3 flex flex-col justify-between">
+                  <div className="flex justify-between items-center text-slate-400 text-xs font-bold uppercase">
+                    <span>{language === 'hi' ? 'स्थानीय मंडी भाव' : 'Local Mandi Rates'}</span>
+                    <Coins size={18} className="text-primary" />
+                  </div>
+                  <div className="divide-y divide-slate-50">
+                    {dashboardData?.localPrices && dashboardData.localPrices.length > 0 ? (
+                      dashboardData.localPrices.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 text-xs">
+                          <div>
+                            <p className="font-bold text-slate-800">{item.cropName}</p>
+                            <p className="text-[10px] text-slate-400 font-semibold">{item.market}, {item.state}</p>
+                          </div>
+                          <div className="text-right flex items-center space-x-2">
+                            <span className="font-extrabold text-slate-800">₹{item.price} <span className="text-[10px] text-slate-400 font-normal">/ {item.unit}</span></span>
+                            <span className={`text-xs ${item.trend === 'up' ? 'text-success' : item.trend === 'down' ? 'text-error' : 'text-slate-400'}`}>
+                              {item.trend === 'up' ? '▲' : item.trend === 'down' ? '▼' : '●'}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-xs text-slate-400 py-6">
+                        {language === 'hi' ? 'कोई भाव उपलब्ध नहीं' : 'No mandi rates available'}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -265,6 +334,98 @@ const Dashboard = () => {
                   </div>
                 ) : <div className="text-center text-xs text-slate-400">{t.loadingForecast}</div>}
               </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              TAB: MANDI PRICES INDEX
+              ========================================== */}
+          {tabParam === 'prices' && (
+            <div className="space-y-6 font-sans">
+              {/* Search & State Filter bar */}
+              <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-premium flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex-1 flex flex-col md:flex-row items-center gap-4 w-full">
+                  <input
+                    type="text"
+                    placeholder={t.filterCrop}
+                    value={mandiSearch}
+                    onChange={(e) => setMandiSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') fetchMandiPrices(); }}
+                    className="bg-slate-50 border border-slate-100 text-xs rounded-lg p-3 w-full md:max-w-md focus:outline-none focus:ring-1 focus:ring-primary font-semibold text-slate-700"
+                  />
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <label className="text-xs text-slate-400 font-bold uppercase whitespace-nowrap">
+                      {language === 'hi' ? 'राज्य चुनें:' : 'Select State:'}
+                    </label>
+                    <select
+                      value={mandiState}
+                      onChange={(e) => setMandiState(e.target.value)}
+                      className="bg-slate-50 border border-slate-100 text-xs rounded-lg p-3 w-full md:w-56 focus:outline-none focus:ring-1 focus:ring-primary text-slate-600 font-semibold"
+                    >
+                      <option value="all">{language === 'hi' ? 'सभी राज्य' : 'All States'}</option>
+                      {mandiStatesList.map((st, i) => (
+                        <option key={i} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button onClick={fetchMandiPrices} className="bg-primary hover:bg-primary-dark text-white font-bold text-xs px-6 py-3 rounded-xl shadow-premium w-full md:w-auto">
+                  {language === 'hi' ? 'खोजें' : 'Search'}
+                </button>
+              </div>
+
+              {/* Mandi Prices Grid/Table */}
+              {mandiLoading ? (
+                <div className="p-12 text-center text-xs text-slate-500 font-semibold">
+                  {language === 'hi' ? 'मंडी भाव सिंक हो रहे हैं...' : 'Syncing mandi prices...'}
+                </div>
+              ) : mandiPrices.length === 0 ? (
+                <div className="bg-white border border-slate-100 p-12 text-center rounded-2xl shadow-premium text-xs text-slate-400 font-semibold">
+                  {language === 'hi' ? 'कोई मंडी भाव नहीं मिले।' : 'No mandi rates found.'}
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-100 rounded-2xl shadow-premium overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse text-slate-600">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase">
+                          <th className="p-4">{t.cropCol}</th>
+                          <th className="p-4">{t.marketCol}</th>
+                          <th className="p-4">{t.stateCol}</th>
+                          <th className="p-4">{t.priceCol}</th>
+                          <th className="p-4">{language === 'hi' ? 'प्रवृत्ति' : 'Trend'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 font-medium">
+                        {mandiPrices.map((item) => (
+                          <tr key={item._id} className="hover:bg-slate-50/40">
+                            <td className="p-4 font-bold text-slate-800">{item.cropName}</td>
+                            <td className="p-4">{item.market}</td>
+                            <td className="p-4">{item.state}</td>
+                            <td className="p-4 font-extrabold text-slate-800">
+                              ₹{item.price} <span className="text-[10px] text-slate-400 font-normal">/ {item.unit}</span>
+                            </td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center space-x-1 font-semibold text-xs ${
+                                item.trend === 'up' ? 'text-success' :
+                                item.trend === 'down' ? 'text-error' :
+                                'text-slate-400'
+                              }`}>
+                                <span>{item.trend === 'up' ? '▲' : item.trend === 'down' ? '▼' : '●'}</span>
+                                <span className="capitalize text-[10px]">{
+                                  item.trend === 'up' ? (language === 'hi' ? 'ऊपर' : 'Up') :
+                                  item.trend === 'down' ? (language === 'hi' ? 'नीचे' : 'Down') :
+                                  (language === 'hi' ? 'स्थिर' : 'Stable')
+                                }</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
