@@ -32,8 +32,8 @@ export const NotificationProvider = ({ children }) => {
 
     if (!user) return;
 
-    // Connect to WebSocket Server
-    const socket = io('http://localhost:5000');
+    // Connect to WebSocket Server (same-origin in production, localhost in dev)
+    const socket = io(import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
 
     socket.on('connect', () => {
       console.log('Socket.io connected to server');

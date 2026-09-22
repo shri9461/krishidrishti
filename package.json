@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "AgriSmart AI - Intelligent Farming Assistant Workspace",
   "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "dev:all": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
