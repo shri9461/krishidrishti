@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import { AuthContext } from '../context/AuthContext';
 import { TRANSLATIONS } from '../utils/translations';
+import { apiUrl } from '../utils/api';
 import { CloudSun, Coins, Radio } from 'lucide-react';
 
 const Dashboard = () => {
@@ -48,7 +49,7 @@ const Dashboard = () => {
   // Fetch Core Dashboard Overview Data
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('/api/dashboard', { headers: { Authorization: `Bearer ${user.token}` } });
+      const res = await fetch(apiUrl('/api/dashboard'), { headers: { Authorization: `Bearer ${user.token}` } });
       const json = await res.json();
       if (json.success) setDashboardData(json.data);
     } catch (err) {
@@ -63,7 +64,7 @@ const Dashboard = () => {
     try {
       const q = loc || user?.location || user?.state || 'Maharashtra';
       setLastFetchedLoc(q);
-      const res = await fetch(`/api/weather?location=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${user.token}` } });
+      const res = await fetch(apiUrl(`/api/weather?location=${encodeURIComponent(q)}`), { headers: { Authorization: `Bearer ${user.token}` } });
       const json = await res.json();
       if (json.success) setWeatherData(json.data);
     } catch (err) {
@@ -81,7 +82,7 @@ const Dashboard = () => {
       if (mandiState !== 'all') {
         url += `&state=${encodeURIComponent(mandiState)}`;
       }
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${user.token}` } });
+      const res = await fetch(apiUrl(url), { headers: { Authorization: `Bearer ${user.token}` } });
       const json = await res.json();
       if (json.success) {
         setMandiPrices(json.data.prices);
@@ -98,7 +99,7 @@ const Dashboard = () => {
   const fetchSchemes = async () => {
     setSchemesLoading(true);
     try {
-      const res = await fetch(`/api/schemes?search=${encodeURIComponent(schemeSearch)}&category=${encodeURIComponent(schemeCategory)}`, {
+      const res = await fetch(apiUrl(`/api/schemes?search=${encodeURIComponent(schemeSearch)}&category=${encodeURIComponent(schemeCategory)}`), {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       const json = await res.json();
@@ -114,11 +115,11 @@ const Dashboard = () => {
   const fetchAdminStats = async () => {
     if (user.role !== 'admin') return;
     try {
-      const statsRes = await fetch('/api/admin/dashboard', { headers: { Authorization: `Bearer ${user.token}` } });
+      const statsRes = await fetch(apiUrl('/api/admin/dashboard'), { headers: { Authorization: `Bearer ${user.token}` } });
       const statsJson = await statsRes.json();
       if (statsJson.success) setAdminStats(statsJson.data);
 
-      const usersRes = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${user.token}` } });
+      const usersRes = await fetch(apiUrl('/api/admin/users'), { headers: { Authorization: `Bearer ${user.token}` } });
       const usersJson = await usersRes.json();
       if (usersJson.success) setAdminUsers(usersJson.data);
     } catch (err) {
@@ -157,7 +158,7 @@ const Dashboard = () => {
     setProfileSuccess('');
     setProfileError('');
     try {
-      const res = await fetch('/api/auth/profile', {
+      const res = await fetch(apiUrl('/api/auth/profile'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
         body: JSON.stringify({ name: profileName, phone: profilePhone, location: profileLocation, state: profileState, password: profilePass }),
@@ -179,7 +180,7 @@ const Dashboard = () => {
     e.preventDefault();
     setBroadcastSuccess(false);
     try {
-      const res = await fetch('/api/admin/notifications', {
+      const res = await fetch(apiUrl('/api/admin/notifications'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
         body: JSON.stringify({ title: broadcastTitle, message: broadcastMsg, type: broadcastType }),

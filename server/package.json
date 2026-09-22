@@ -5,6 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
+    "build": "npm install --prefix ../client && npm run build --prefix ../client",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:test": "node scripts/testDb.js",

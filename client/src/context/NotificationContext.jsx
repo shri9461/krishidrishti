@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from './AuthContext';
+import { apiUrl, SOCKET_URL } from '../utils/api';
 
 export const NotificationContext = createContext();
 
@@ -12,7 +13,7 @@ export const NotificationProvider = ({ children }) => {
   const fetchNotifications = async () => {
     if (!user || !user.token) return;
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch(apiUrl('/api/notifications'), {
         headers: {
           Authorization: `Bearer ${user.token}`,
         },
@@ -32,8 +33,8 @@ export const NotificationProvider = ({ children }) => {
 
     if (!user) return;
 
-    // Connect to WebSocket Server (same-origin in production, localhost in dev)
-    const socket = io(import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
+    // Connect to WebSocket Server (VITE_API_URL in prod if split-hosted, localhost in dev)
+    const socket = io(SOCKET_URL);
 
     socket.on('connect', () => {
       console.log('Socket.io connected to server');
@@ -68,7 +69,7 @@ export const NotificationProvider = ({ children }) => {
   const markNotificationAsRead = async (id) => {
     if (!user || !user.token) return;
     try {
-      const response = await fetch(`/api/notifications/${id}/read`, {
+      const response = await fetch(apiUrl(`/api/notifications/${id}/read`), {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${user.token}`,
@@ -88,7 +89,7 @@ export const NotificationProvider = ({ children }) => {
   const markAllNotificationsAsRead = async () => {
     if (!user || !user.token) return;
     try {
-      const response = await fetch('/api/notifications/read-all', {
+      const response = await fetch(apiUrl('/api/notifications/read-all'), {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${user.token}`,

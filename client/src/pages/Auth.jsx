@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { apiUrl } from '../utils/api';
 import { AlertCircle, CheckCircle2, ShieldCheck, User, PlusCircle, KeyRound, ArrowRight } from 'lucide-react';
 
 const Auth = () => {
@@ -50,7 +51,7 @@ const Auth = () => {
         }
       }
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
