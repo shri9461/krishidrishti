@@ -48,36 +48,55 @@ const connectDB = async () => {
     console.warn('[MongoDB] Connection lost. Disconnected from database.');
   });
 
-  // Standard connection
-  try {
-    const conn = await mongoose.connect(targetUri, {
-      serverSelectionTimeoutMS: 5000,
-    });
-    console.log(`[MongoDB] Successfully connected to ${isAtlas ? 'MongoDB Atlas (Cloud)' : 'MongoDB Server'} on host: ${conn.connection.host}`);
-    return conn;
-  } catch (primaryError) {
-    console.error('\n======================================================');
-    console.error('           DATABASE CONNECTION FAILED                 ');
-    console.error('======================================================');
-    console.error(`Target URI : ${targetUri}`);
-    console.error(`Error      : ${primaryError.message}\n`);
-    console.error('HOW TO CONNECT YOUR DATABASE:');
-    console.error('------------------------------------------------------');
-    console.error('1. RECOMMENDED: Use Free MongoDB Atlas (Cloud)');
-    console.error('   - Create a free cluster at: https://www.mongodb.com/atlas/database');
-    console.error('   - In Network Access, allow IP 0.0.0.0/0');
-    console.error('   - Copy your connection string into server/.env:');
-    console.error('     MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/krishdrishti');
-    console.error('');
-    console.error('2. OR: Run Local MongoDB Community Server:');
-    console.error('   - Open PowerShell as Admin and start service:');
-    console.error('     net start MongoDB');
-    console.error('   - Or install via:');
-    console.error('     winget install MongoDB.Server');
-    console.error('');
-    console.error('3. Full guide: See MONGODB_SETUP.md');
-    console.error('======================================================\n');
-    process.exit(1);
+  // Standard connection (retries absorb transient Render <-> Atlas network blips)
+  const options = {
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+  };
+  const MAX_RETRIES = 5;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const conn = await mongoose.connect(targetUri, options);
+      console.log(`[MongoDB] Successfully connected to ${isAtlas ? 'MongoDB Atlas (Cloud)' : 'MongoDB Server'} on host: ${conn.connection.host}`);
+      return conn;
+    } catch (primaryError) {
+      // Auth/URI errors never succeed on retry — fail fast with guidance.
+      const isAuthError = /authentication|auth failed|bad auth|MONGODB_URI|invalid/i.test(primaryError.message);
+
+      if (!isAuthError && attempt < MAX_RETRIES) {
+        const delay = attempt * 3000;
+        console.warn(`[MongoDB] Connect attempt ${attempt}/${MAX_RETRIES} failed: ${primaryError.message}`);
+        console.warn(`[MongoDB] Retrying in ${delay / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      console.error('\n======================================================');
+      console.error('           DATABASE CONNECTION FAILED                 ');
+      console.error('======================================================');
+      console.error(`Target URI : ${targetUri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')}`);
+      console.error(`Error      : ${primaryError.message}\n`);
+      console.error('HOW TO CONNECT YOUR DATABASE:');
+      console.error('------------------------------------------------------');
+      console.error('1. RECOMMENDED: Use Free MongoDB Atlas (Cloud)');
+      console.error('   - Create a free cluster at: https://www.mongodb.com/atlas/database');
+      console.error('   - In Network Access, allow IP 0.0.0.0/0');
+      console.error('   - Copy your connection string into server/.env:');
+      console.error('     MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/krishdrishti');
+      console.error('');
+      console.error('2. OR: Run Local MongoDB Community Server:');
+      console.error('   - Open PowerShell as Admin and start service:');
+      console.error('     net start MongoDB');
+      console.error('   - Or install via:');
+      console.error('     winget install MongoDB.Server');
+      console.error('');
+      console.error('3. Full guide: See MONGODB_SETUP.md');
+      console.error('======================================================\n');
+      process.exit(1);
+    }
   }
 };
 

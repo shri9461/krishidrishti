@@ -6,15 +6,23 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import connectDB from './config/db.js';
+import connectDB, { isDatabaseConnected } from './config/db.js';
 import { seedData } from './scripts/seedDb.js';
+import ensureDb from './middlewares/dbMiddleware.js';
 
 // Route Imports
 import authRoutes from './routes/authRoutes.js';
 import mainRoutes from './routes/mainRoutes.js';
 
-// Load config
-dotenv.config();
+// Resolve dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load config — try BOTH env locations (order mirrors scripts/seedDb.js):
+// 1) server/.env  2) root .env. dotenv never overrides already-set keys,
+// so a dedicated server/.env wins, and Render (dashboard env vars) is unaffected.
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Initialize App
 const app = express();
@@ -34,19 +42,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Resolve dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Serve Static Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Mount API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api', mainRoutes);
+// Health check endpoint — MUST be registered BEFORE the API mounts:
+// mainRoutes applies auth middleware to every /api/* path, which would
+// otherwise intercept /api/health with a 401 and fail Render's health checks.
+app.get('/api/health', (req, res) =>
+  res.json({
+    status: 'ok',
+    db: isDatabaseConnected() ? 'connected' : 'disconnected',
+    time: new Date().toISOString(),
+  })
+);
 
-// Health check endpoint (Render uptime monitors / health checks)
-app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+// Mount API Routes (guarded: fast 503 during DB outages instead of cryptic 500s)
+app.use('/api/auth', ensureDb, authRoutes);
+app.use('/api', ensureDb, mainRoutes);
 
 // Serve React Frontend (production)
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
@@ -67,7 +79,7 @@ app.get('*', (req, res, next) => {
 
 // Global Error Handler Middleware
 app.use((err, req, res, next) => {
-  console.error('Unhandled Server Error:', err.message);
+  console.error('Unhandled Server Error:', err.stack || err.message);
   res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
 });
 
